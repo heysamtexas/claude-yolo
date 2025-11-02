@@ -1,0 +1,175 @@
+services:
+  # ============================================================================
+  # Main Claude YOLO Container (always runs)
+  # ============================================================================
+  claude-yolo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-yolo
+    hostname: claude-yolo
+
+    # Resource limits for safety (configurable via .env)
+    deploy:
+      resources:
+        limits:
+          cpus: '${CONTAINER_CPU_LIMIT:-2.0}'
+          memory: ${CONTAINER_MEMORY_LIMIT:-4G}
+        reservations:
+          cpus: '${CONTAINER_CPU_RESERVATION:-0.5}'
+          memory: ${CONTAINER_MEMORY_RESERVATION:-1G}
+
+    # Volume mounts
+    volumes:
+      # Persistent home directory (configs, git setup, customizations)
+      - claude-home:/home/developer
+
+      # Mount projects directory (adjust host path as needed)
+      - ${HOST_WORKSPACE:-./workspace}:/workspace
+
+      # Shared logs - both Claude and user can read/write
+      - ${HOST_LOGS:-./logs}:/logs
+
+      # Tailscale state persistence (only used if TS_AUTHKEY is set)
+      - tailscale-state:/var/lib/tailscale
+
+      # OpenVPN configuration directory (only used if OPENVPN_CONFIG is set)
+      - ${HOST_OPENVPN_DIR:-./openvpn}:/openvpn:ro
+
+      # Cloudflared state persistence and configuration
+      - cloudflared-state:/home/developer/.cloudflared
+      - ${HOST_CLOUDFLARED_DIR:-./cloudflared}:/cloudflared:ro
+
+      # Optional: Mount host gitconfig for copying (not direct use)
+      # Uncomment and set HOST_GITCONFIG in .env to copy your git identity
+      # - ${HOST_GITCONFIG}:/mnt/host-gitconfig:ro
+
+      # SSH keys (optional, read-only for security)
+      # - ${HOME}/.ssh:/home/developer/.ssh:ro
+
+      # Cloud credentials (optional, mount carefully)
+      # - ${HOME}/.aws:/home/developer/.aws:ro
+      # - ${HOME}/.config/gcloud:/home/developer/.config/gcloud:ro
+      # - ${HOME}/.azure:/home/developer/.azure:ro
+
+    # Ports
+    ports:
+      # Application port (for FastAPI, Flask, etc.)
+      - "${APP_PORT:-8000}:8000"
+
+      # Web terminal port (only active when WEBTERMINAL_ENABLED=true)
+      - "${WEBTERMINAL_PORT:-7681}:${WEBTERMINAL_PORT:-7681}"
+
+    # Environment variables
+    environment:
+      - WORKSPACE=/workspace
+      - LOG_DIR=/logs
+      - CLAUDE_LOG_LEVEL=${CLAUDE_LOG_LEVEL:-info}
+      - ENABLE_COMMAND_LOGGING=true
+      - PYTHONUNBUFFERED=1
+
+      # Web terminal (optional, controlled by env var)
+      - WEBTERMINAL_ENABLED=${WEBTERMINAL_ENABLED:-false}
+      - WEBTERMINAL_PORT=${WEBTERMINAL_PORT:-7681}
+      - WEBTERMINAL_AUTH=${WEBTERMINAL_AUTH}
+
+      # Tailscale (optional, only starts if TS_AUTHKEY is set)
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_HOSTNAME=${TS_HOSTNAME:-claude-yolo}
+      - TS_ACCEPT_DNS=${TS_ACCEPT_DNS:-false}
+      - TS_EXTRA_ARGS=${TS_EXTRA_ARGS:-}
+
+      # OpenVPN (optional, only starts if OPENVPN_CONFIG is set)
+      - OPENVPN_CONFIG=${OPENVPN_CONFIG}
+      - OPENVPN_AUTH_USER=${OPENVPN_AUTH_USER}
+      - OPENVPN_AUTH_PASS=${OPENVPN_AUTH_PASS}
+
+      # Cloudflared (optional, starts if CLOUDFLARED_TUNNEL_TOKEN or CLOUDFLARED_CONFIG is set)
+      - CLOUDFLARED_TUNNEL_TOKEN=${CLOUDFLARED_TUNNEL_TOKEN}
+      - CLOUDFLARED_CONFIG=${CLOUDFLARED_CONFIG}
+      - CLOUDFLARED_METRICS_PORT=${CLOUDFLARED_METRICS_PORT:-}
+
+      # Proxy settings (optional, only set if using proxy profile)
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1}
+
+    # Keep container running
+    stdin_open: true
+    tty: true
+
+    # Capabilities and devices (for Tailscale and OpenVPN)
+    cap_add:
+      - NET_ADMIN
+
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
+    # Network settings
+    networks:
+      - claude-network
+
+    # Working directory
+    working_dir: /workspace
+
+    # Default command with initialization
+    command: /bin/bash -c "source /opt/config-templates/init.sh && exec /bin/bash"
+
+    labels:
+      - "claude-yolo.version=1.0"
+
+
+  # ============================================================================
+  # Proxy Service (optional - use with: --profile proxy)
+  # ============================================================================
+  proxy:
+    profiles: ["proxy"]
+    image: mitmproxy/mitmproxy:latest
+    container_name: claude-yolo-proxy
+
+    volumes:
+      # Mount logs directory for proxy logs
+      - ${HOST_LOGS:-./logs}/proxy:/home/mitmproxy/.mitmproxy
+      # Optional: custom mitmproxy scripts
+      - ./proxy/scripts:/home/mitmproxy/scripts:ro
+
+    ports:
+      - "${PROXY_PORT:-8080}:8080"          # Proxy port
+      - "${PROXY_WEB_PORT:-8081}:8081"      # Web interface
+
+    # Run mitmweb with logging enabled
+    command: >
+      mitmweb
+      --web-host 0.0.0.0
+      --set block_global=false
+      --set flow_detail=3
+      --set console_eventlog_verbosity=info
+      --set termlog_verbosity=info
+      --scripts /home/mitmproxy/scripts/log_requests.py
+
+    networks:
+      - claude-network
+
+    restart: unless-stopped
+
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  claude-network:
+    driver: bridge
+
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  claude-home:
+    driver: local
+
+  tailscale-state:
+    name: claude-yolo_tailscale-state
+
+  cloudflared-state:
+    name: claude-yolo_cloudflared-state

@@ -1,0 +1,52 @@
+# Ignore files that shouldn't be copied into Docker build context
+
+# Logs
+logs/
+*.log
+
+# Workspace
+workspace/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# Documentation (not needed in image)
+README.md
+*.md
+!config/*.md
+!proxy/*.md
+
+# Docker files
+docker-compose*.yml
+Dockerfile
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak

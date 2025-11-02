@@ -1,0 +1,80 @@
+#!/bin/bash
+# Git pre-commit hook for safety checks
+
+GIT_LOG="/logs/git/operations.log"
+SAFETY_LOG="/logs/safety/checks.log"
+
+log_git() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] [PRE-COMMIT] $@" >> "$GIT_LOG"
+}
+
+log_safety() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] [PRE-COMMIT] $@" >> "$SAFETY_LOG"
+}
+
+log_git "Running pre-commit safety checks"
+
+# Check for secrets with gitleaks
+if command -v gitleaks &> /dev/null; then
+    log_safety "Running gitleaks scan"
+    if ! gitleaks protect --staged --redact --verbose >> "$SAFETY_LOG" 2>&1; then
+        echo "❌ SECURITY: Potential secrets detected in commit!"
+        echo "   Check logs at: $SAFETY_LOG"
+        log_safety "BLOCKED: Secrets detected in commit"
+        exit 1
+    fi
+    log_safety "✓ No secrets detected"
+fi
+
+# Check for large files
+log_safety "Checking for large files"
+MAX_SIZE=1000  # KB
+while IFS= read -r file; do
+    if [ -f "$file" ]; then
+        size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+        size_kb=$((size / 1024))
+        if [ $size_kb -gt $MAX_SIZE ]; then
+            echo "❌ SAFETY: Large file detected: $file (${size_kb}KB)"
+            echo "   Files over ${MAX_SIZE}KB should not be committed"
+            log_safety "BLOCKED: Large file $file (${size_kb}KB)"
+            exit 1
+        fi
+    fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+# Check for common sensitive file patterns
+SENSITIVE_PATTERNS=(
+    "\.env$"
+    "\.env\..*"
+    "credentials\.json"
+    "\.aws/credentials"
+    "\.ssh/id_rsa"
+    "\.pem$"
+    "\.key$"
+    "\.p12$"
+    "\.pfx$"
+    "secret"
+    "\.crt$"
+)
+
+log_safety "Checking for sensitive file patterns"
+for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+    if git diff --cached --name-only | grep -qE "$pattern"; then
+        matching_files=$(git diff --cached --name-only | grep -E "$pattern")
+        echo "⚠️  WARNING: Potentially sensitive files detected:"
+        echo "$matching_files"
+        log_safety "WARNING: Sensitive pattern matched: $pattern"
+        echo ""
+        echo "Are you sure you want to commit these files? (yes/no)"
+        read -r response
+        if [[ ! "$response" =~ ^[Yy][Ee][Ss]$ ]]; then
+            log_safety "BLOCKED: User cancelled commit with sensitive files"
+            exit 1
+        fi
+        log_safety "User approved commit with sensitive pattern: $pattern"
+    fi
+done
+
+log_git "Pre-commit checks passed"
+log_safety "✓ All safety checks passed"
+exit 0

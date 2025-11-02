@@ -1,0 +1,68 @@
+# Claude Code YOLO Mode - Git Ignore
+
+# Environment configuration
+.env
+
+# Logs directory (populated at runtime)
+logs/
+*.log
+
+# Workspace directory (user's projects)
+workspace/
+
+# Backups
+backups/
+
+# Docker volumes
+.docker/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+.Spotlight-V100
+.Trashes
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+tmp/
+temp/
+
+# Secrets and credentials (extra safety)
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.yaml
+secrets.yml
+.secrets.baseline
+
+# Build artifacts
+dist/
+build/
+*.egg
+
+# Claude Code user-specific settings
+.claude/settings.local.json

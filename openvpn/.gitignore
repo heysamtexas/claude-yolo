@@ -1,0 +1,10 @@
+# OpenVPN Configuration Files
+# DO NOT commit VPN config files to version control!
+
+# Ignore all files in this directory
+*
+
+# Except this .gitignore and README.md
+!.gitignore
+!README.md
+!.ovpn.example

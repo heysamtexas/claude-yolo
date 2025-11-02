@@ -1,0 +1,10 @@
+# Cloudflared Configuration Files
+# DO NOT commit tunnel credentials or config files to version control!
+
+# Ignore all files in this directory
+*
+
+# Except this .gitignore and README.md
+!.gitignore
+!README.md
+!config.yml.example
