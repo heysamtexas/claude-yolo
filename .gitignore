@@ -10,6 +10,9 @@ logs/
 # Workspace directory (user's projects)
 workspace/
 
+# Home directory (user configs, git setup, customizations)
+home/
+
 # Backups
 backups/
 

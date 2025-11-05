@@ -30,8 +30,10 @@ if [ ! -d "$HOME/.config/git" ]; then
     echo "🔧 First run detected - setting up configuration..."
     log_safety "First run - copying configuration templates"
 
-    # Copy config templates to user home
-    cp -r /opt/config-templates/* "$HOME/.config/" 2>/dev/null || true
+    # Copy config templates to user home (no-clobber to preserve existing files)
+    # Use cp -a to preserve permissions
+    cp -an /opt/config-templates/* "$HOME/.config/" 2>/dev/null || true
+    # Ensure hooks are executable (in case permissions were lost)
     chmod +x "$HOME/.config/git/hooks"/* 2>/dev/null || true
 
     # Make scripts available in PATH
@@ -44,10 +46,12 @@ else
     log_safety "Using existing configuration"
 fi
 
-# Always update tmux config to ensure latest settings
-if [ -f "/opt/config-templates/.tmux.conf" ]; then
+# Update tmux config only if it doesn't exist (preserve user customizations)
+if [ -f "/opt/config-templates/.tmux.conf" ] && [ ! -f "$HOME/.tmux.conf" ]; then
     cp /opt/config-templates/.tmux.conf "$HOME/.tmux.conf"
-    log_safety "tmux configuration updated to ~/.tmux.conf"
+    log_safety "tmux configuration copied to ~/.tmux.conf"
+elif [ -f "$HOME/.tmux.conf" ]; then
+    log_safety "Using existing tmux configuration"
 fi
 
 # Ensure scripts are in PATH
@@ -124,7 +128,8 @@ echo ""
 
 # Set up command logging wrapper (optional - captures bash history)
 if [ "$ENABLE_COMMAND_LOGGING" = "true" ]; then
-    export PROMPT_COMMAND='history -a; tail -n1 ~/.bash_history >> '"$COMMAND_LOG"
+    touch ~/.bash_history
+    export PROMPT_COMMAND='history -a; tail -n1 ~/.bash_history 2>/dev/null >> '"$COMMAND_LOG"
     log_safety "Command logging enabled"
 fi
 
@@ -194,6 +199,7 @@ if [ "$WEBTERMINAL_ENABLED" = "true" ]; then
     # Add client options
     TTYD_CMD="$TTYD_CMD --client-option enableZmodem=true"
     TTYD_CMD="$TTYD_CMD --client-option fontSize=16"
+    TTYD_CMD="$TTYD_CMD --client-option fontFamily=monospace"
     TTYD_CMD="$TTYD_CMD --client-option theme='{\"background\":\"#1e1e1e\",\"foreground\":\"#d4d4d4\"}'"
 
     # Start ttyd with tmux for persistent sessions (can disconnect/reconnect)

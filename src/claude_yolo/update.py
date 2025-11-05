@@ -8,7 +8,6 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
-from rich.table import Table
 
 console = Console()
 
@@ -47,7 +46,7 @@ def categorize_files(templates_dir: Path, claude_dir: Path) -> dict:
     Returns:
         dict with keys: new, changed, unchanged, never_update
     """
-    result = {
+    result: dict[str, list[Path]] = {
         "new": [],
         "changed": [],
         "unchanged": [],
@@ -179,7 +178,7 @@ def update_templates() -> None:
             console.print(f"  [red]✗[/red] {rel_path}: {e}")
 
     # Success message
-    console.print(f"\n[bold green]🎉 Update complete![/bold green]")
+    console.print("\n[bold green]🎉 Update complete![/bold green]")
     console.print(f"Updated {updated_count} file(s)")
 
     if custom_files:

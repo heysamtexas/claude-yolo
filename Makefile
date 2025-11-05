@@ -268,23 +268,28 @@ log-git: ## View git operation logs (tail -f)
 # ADVANCED (Backup, Restore, Reset)
 # ============================================================================
 
-backup-config: ## Backup configuration volume to ./backups/
-	@echo "Backing up configuration..."
+backup-config: ## Backup home directory to ./backups/
+	@echo "Backing up home directory..."
 	@mkdir -p backups
-	docker run --rm -v claude-yolo_claude-home:/data -v $$(pwd)/backups:/backup ubuntu tar czf /backup/claude-home-$$(date +%Y%m%d-%H%M%S).tar.gz -C /data .
-	@echo "✅ Backup created in ./backups/"
+	@if [ -d "./home" ]; then \
+		tar czf ./backups/claude-home-$$(date +%Y%m%d-%H%M%S).tar.gz -C ./home . && \
+		echo "✅ Backup created in ./backups/"; \
+	else \
+		echo "⚠️  No ./home directory found - nothing to backup"; \
+	fi
 
 restore-config: ## Restore config from backup (set BACKUP_FILE=path/to/file.tar.gz)
 	@if [ -z "$(BACKUP_FILE)" ]; then echo "❌ Set BACKUP_FILE=path/to/backup.tar.gz"; exit 1; fi
 	@echo "Restoring configuration from $(BACKUP_FILE)..."
-	docker run --rm -v claude-yolo_claude-home:/data -v $$(pwd):/host ubuntu tar xzf /host/$(BACKUP_FILE) -C /data
-	@echo "✅ Configuration restored"
+	@mkdir -p ./home
+	tar xzf $(BACKUP_FILE) -C ./home
+	@echo "✅ Configuration restored to ./home/"
 
-reset-config: ## Reset config to defaults (DESTRUCTIVE - removes all settings)
-	@echo "⚠️  This will delete all persisted configuration (git config, custom settings)"
+reset-config: ## Reset config to defaults (DESTRUCTIVE - removes ./home directory)
+	@echo "⚠️  This will delete all configuration in ./home/ (git config, custom settings)"
 	@read -p "Are you sure? (yes/no): " confirm && [ "$$confirm" = "yes" ] || exit 1
-	docker-compose down -v
-	docker volume rm claude-yolo_claude-home 2>/dev/null || true
+	docker-compose down
+	rm -rf ./home
 	@echo "✅ Configuration reset. Run 'make up' to start fresh"
 
 lint-dockerfile: ## Lint Dockerfile with hadolint (requires hadolint installed)

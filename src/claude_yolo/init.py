@@ -266,6 +266,5 @@ def confirm(question: str) -> bool:
     Returns:
         True if user confirms, False otherwise
     """
-    import typer
     response = typer.confirm(question)
     return response

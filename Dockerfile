@@ -7,6 +7,10 @@ FROM ubuntu:24.04 AS base
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
+# Set locale to fix terminal character rendering
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 # Install base dependencies and essential tools
 RUN apt-get update && apt-get install -y \
     # Core utilities
@@ -21,6 +25,7 @@ RUN apt-get update && apt-get install -y \
     lsb-release \
     software-properties-common \
     unzip \
+    locales \
     # Build tools
     build-essential \
     make \
@@ -211,7 +216,9 @@ WORKDIR /workspace
 # Copy configuration templates (will be copied to user home on first run)
 COPY config/ /opt/config-templates/
 COPY scripts/ /opt/scripts/
-RUN chmod +x /opt/scripts/*.sh
+RUN chmod +x /opt/scripts/*.sh && \
+    chmod +x /opt/config-templates/init.sh && \
+    chmod +x /opt/config-templates/git/hooks/*
 
 # Switch to non-root user
 USER developer

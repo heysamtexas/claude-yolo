@@ -21,8 +21,9 @@ services:
 
     # Volume mounts
     volumes:
-      # Persistent home directory (configs, git setup, customizations)
-      - claude-home:/home/developer
+      # Home directory bind mount (configs, git setup, customizations)
+      # :delegated = container-authoritative for better macOS performance
+      - ${HOST_HOME:-./home}:/home/developer:delegated
 
       # Mount projects directory (adjust host path as needed)
       # :delegated = container-authoritative for better macOS performance
@@ -193,9 +194,6 @@ networks:
 # Volumes
 # ============================================================================
 volumes:
-  claude-home:
-    driver: local
-
   tailscale-state:
     name: claude-yolo_tailscale-state
 

@@ -23,24 +23,20 @@ Docker-based Claude Code environment with safety features (secrets scanning, git
 
 ```
 claude-yolo/
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
-├── Makefile
-├── config/
-│   ├── init.sh
-│   ├── .pre-commit-config.yaml
-│   ├── gitignore.template
-│   ├── .claude/settings.local.json
-│   └── git/hooks/ (pre-commit, pre-push)
-├── scripts/
-│   └── setup-project-safety.sh
-├── proxy/
-├── webterminal/
-├── tailscale/
-├── openvpn/
-├── cloudflared/
-└── logs/ (commands, safety, git, claude, proxy, tailscale.log, openvpn.log, cloudflared.log)
+├── src/claude_yolo/           # Python package (CLI tool)
+├── terraform/                 # Infrastructure as Code
+│   └── azure/                # Azure deployment modules
+│       ├── acr/              # Azure Container Registry
+│       ├── aci/              # Azure Container Instances
+│       ├── vm/               # Azure Virtual Machines
+│       └── scripts/          # Helper scripts (push-to-acr.sh)
+├── examples/                  # Demo applications
+│   └── fastapi-hello-world/  # Simple FastAPI demo
+├── demos/                     # Sales engineering demos
+│   └── sales-engineering/    # SE demo scripts and guides
+├── docs/                      # Documentation
+├── tests/                     # Test suite
+└── .github/workflows/         # CI/CD pipelines
 ```
 
 ## Safety Constraints
@@ -111,10 +107,12 @@ See [GitHub Issue #2527](https://github.com/anthropics/claude-code/issues/2527) 
 
 ## Volume Mounts
 
-- `/home/developer` - Named volume `claude-home` (persists config, git setup)
+- `/home/developer` - Host home directory bind mount (configurable via `HOST_HOME`, default: `./home`)
 - `/workspace` - Host workspace directory (configurable via `HOST_WORKSPACE`)
 - `/logs` - Shared logs directory (configurable via `HOST_LOGS`)
 - `/mnt/host-gitconfig` - Optional mount for host git config
+
+**Note:** The home directory uses a bind mount for transparency and easy access to configs. Files created by the container are owned by UID 1001 (container user). On macOS/Windows Docker Desktop, this is handled transparently. On Linux, you may need to adjust ownership with `sudo chown -R $USER ./home` if needed.
 
 ## Common Commands
 
@@ -147,3 +145,53 @@ IMPORTANT: This environment is designed for users who may be disconnected from a
 ## Target Users
 
 Sales Engineers (demoing safely), Forward-Deployed Engineers (customer environments), CTOs/Leadership (experimenting with Claude Code), Anyone wanting maximum autonomy with maximum safety.
+
+## Azure Infrastructure (New!)
+
+OpenTofu/Terraform modules for deploying claude-yolo to Microsoft Azure. All modules are compatible with both OpenTofu (recommended) and Terraform.
+
+**Available Modules:**
+- **ACR (Azure Container Registry):** Private Docker registry for claude-yolo images
+  - Path: `terraform/azure/acr/`
+  - Cost: ~$5/month (Basic tier)
+  - Deploy time: ~3 minutes
+
+- **ACI (Azure Container Instances):** Serverless container deployment
+  - Path: `terraform/azure/aci/`
+  - Cost: ~$30-40/month (2 vCPU, 4GB RAM)
+  - Deploy time: ~5 minutes
+  - Best for: Demos, development, quick testing
+
+- **VM (Virtual Machines):** Ubuntu VM with Docker and auto-deployment
+  - Path: `terraform/azure/vm/`
+  - Cost: ~$30-70/month (depends on size)
+  - Deploy time: ~10 minutes
+  - Best for: Traditional deployments, persistent workloads
+
+**Quick Deploy Workflow:**
+```bash
+# 1. Deploy ACR
+cd terraform/azure/acr
+tofu init && tofu apply
+
+# 2. Push image to ACR
+cd ../scripts
+./push-to-acr.sh --terraform-dir ../acr --project-dir /path/to/project
+
+# 3. Deploy to ACI or VM
+cd ../aci  # or ../vm
+tofu init && tofu apply
+```
+
+**Demo Resources:**
+- 5-minute sales demo: `demos/sales-engineering/5-minute-demo.md`
+- Azure quick demo script: `demos/sales-engineering/azure-quick-demo.sh`
+- Example app: `examples/fastapi-hello-world/`
+- Azure quickstart guide: `docs/azure-quickstart.md`
+
+**Future Cloud Support:**
+- AWS (ECS, ECR, EC2) - Planned next
+- GCP (GCE, GCR, GKE) - Roadmap
+- Multi-cloud (Kubernetes, Nomad) - Future
+
+See `terraform/azure/README.md` for comprehensive documentation.
