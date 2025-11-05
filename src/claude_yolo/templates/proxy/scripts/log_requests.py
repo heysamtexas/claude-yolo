@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from mitmproxy import http
+from mitmproxy import http  # type: ignore[import-not-found]
 
 # Set up logging
 log_dir = Path("/home/mitmproxy/.mitmproxy/detailed_logs")

@@ -1,10 +1,12 @@
-# Claude Code YOLO Mode 🚀
+# claude-yolo
 
-Run Claude Code with maximum autonomy, safely isolated in Docker.
+> Claude Code YOLO mode - Docker-based development environment with safety features
 
-Perfect for sales engineers, forward-deployed engineers, and anyone who wants to experiment with Claude Code without risking their host machine.
+A professional CLI tool that provides a secure, isolated Docker environment for Claude Code with maximum autonomy. It combines powerful development tools with built-in safety features including secrets scanning, git hooks, comprehensive logging, and VPN/proxy support.
 
-## Features
+Perfect for sales engineers, forward-deployed engineers, CTOs, and anyone who wants maximum autonomy with maximum safety.
+
+## ✨ Features
 
 ✅ **Maximum Safety**
 - Container isolation protects your host machine
@@ -35,48 +37,291 @@ Perfect for sales engineers, forward-deployed engineers, and anyone who wants to
 - Resource limits prevent runaway processes
 - Permissionless Claude Code mode (baked in)
 
-## Quick Start
+## 🚀 Quick Start
 
-### 1. Setup
+### Installation
+
 ```bash
-# Clone and configure
-git clone <this-repo>
-cd claude-yolo
-make setup  # Auto-detects Colima on macOS!
+# Using uv (recommended, fastest)
+uv tool install claude-yolo
 
-# Edit .env to adjust resource limits if needed
-# Then build and start
-make build
-make up
+# Using pipx (isolated environment)
+pipx install claude-yolo
+
+# Using pip (traditional)
+pip install claude-yolo
 ```
 
-**Colima/macOS Users:**
-- `make setup` auto-configures Docker socket path
-- Default limits: 2 CPUs, 4GB RAM (adjust in `.env` if needed)
-- Check your Colima allocation: `colima status`
-- Increase Colima resources if needed: `colima stop && colima start --cpu 4 --memory 8`
+### Start a New Project
 
-### 2. Enter Container
+**Option 1: Clone and auto-setup**
 ```bash
-docker-compose exec claude-yolo bash
+# Clone a repository and automatically initialize
+claude-yolo checkout https://github.com/user/awesome-project
+# Interactive prompts guide you through:
+# → Initialize claude-yolo? [Y/n]
+# → Build container? [Y/n]
+# → Start container? [Y/n]
+
+# Or non-interactive mode
+claude-yolo checkout user/repo --auto-start
 ```
 
-**First Run:** On first start, you'll be prompted to set up git (name/email) unless you've configured `HOST_GITCONFIG` in `.env`. Configuration is saved and persists across container restarts.
-
-### 3. Start Coding
+**Option 2: Initialize an existing project**
 ```bash
-# Set up a new project with safety features
-/home/developer/scripts/setup-project-safety.sh /workspace/my-project
-
-# Create Python project
-cd /workspace/my-project
-uv init .
-uv add requests
-
-# Start developing!
+cd my-existing-project
+claude-yolo init           # Set up claude-yolo infrastructure
+claude-yolo build          # Build Docker image (5-10 min first time)
+claude-yolo run            # Start container
+claude-yolo shell          # Open shell
 ```
 
-### 4. Running Web Applications
+### Start Coding
+
+```bash
+# You're now in a safe, isolated environment!
+# All your favorite tools are ready:
+
+# Python projects (uv is primary package manager)
+uv init my-app
+cd my-app
+uv add fastapi uvicorn
+
+# Git operations are automatically safety-checked
+git commit -m "Add feature"  # Scans for secrets, large files
+git push  # Prevents force push to main/master
+
+# View what Claude and your commands are doing
+claude-yolo logs --type safety --follow
+```
+
+## 📖 CLI Commands
+
+```bash
+# Project Setup
+claude-yolo init [--minimal]              # Initialize in current directory
+claude-yolo checkout <repo> [options]     # Clone and setup repository
+
+# Container Lifecycle
+claude-yolo build [--no-cache]            # Build Docker image
+claude-yolo run [--detach] [--mcp]        # Start container (--mcp for MCP OAuth)
+claude-yolo shell                         # Open shell in container
+claude-yolo stop                          # Stop container
+claude-yolo restart [--build]             # Restart (optionally rebuild)
+claude-yolo clean [--volumes]             # Remove containers/volumes
+
+# Monitoring & Debugging
+claude-yolo logs [--type TYPE] [--follow] # View logs
+claude-yolo status                        # Show container status
+claude-yolo doctor                        # Diagnose issues
+
+# VPN & Network
+claude-yolo vpn status                    # Check VPN status
+
+# Maintenance
+claude-yolo update                        # Update templates
+claude-yolo version                       # Show version
+```
+
+### Checkout Command Examples
+
+```bash
+# Clone and auto-setup
+claude-yolo checkout https://github.com/user/repo
+
+# GitHub shorthand
+claude-yolo checkout user/repo
+
+# Specific branch with shallow clone
+claude-yolo checkout user/repo --branch develop --depth 1
+
+# Non-interactive CI/CD mode
+claude-yolo checkout user/repo --no-interactive --auto-start
+```
+
+### Logs Command Examples
+
+```bash
+# View all recent logs
+claude-yolo logs
+
+# Follow specific log type
+claude-yolo logs --type safety --follow
+claude-yolo logs --type git --tail 50
+
+# Available log types:
+# commands, claude, git, safety, proxy, tailscale, openvpn, cloudflared
+```
+
+## 📁 Project Structure
+
+When you run `claude-yolo init`, it creates:
+
+```
+my-project/
+├── .claude-yolo/              # All infrastructure
+│   ├── Dockerfile             # Customizable (edit freely!)
+│   ├── docker-compose.yml     # Container config
+│   ├── config/                # Git hooks, pre-commit
+│   ├── scripts/               # Safety setup scripts
+│   ├── tailscale/            # Tailscale configs
+│   ├── openvpn/              # OpenVPN configs
+│   ├── cloudflared/          # Cloudflared configs
+│   ├── proxy/                # Proxy settings
+│   └── hooks/                # Customization hooks
+│       ├── pre-build.sh       # Before Docker build
+│       ├── post-build.sh      # After Docker build
+│       └── pre-start.sh       # Before container start
+├── logs/                      # Runtime logs (auto-created)
+│   ├── commands/             # All shell commands
+│   ├── claude/               # Claude Code sessions
+│   ├── git/                  # Git operations
+│   ├── safety/               # Safety checks
+│   ├── proxy.log
+│   ├── tailscale.log
+│   ├── openvpn.log
+│   └── cloudflared.log
+└── .env                       # Your configuration
+```
+
+## ⚙️ Configuration
+
+Edit `.env` to customize:
+
+```bash
+# Container
+CONTAINER_NAME=claude-yolo
+CPU_LIMIT=2
+MEMORY_LIMIT=4g
+
+# Ports
+APP_PORT=8000
+WEB_TERMINAL_PORT=7681
+
+# Features (set to true to enable)
+ENABLE_TAILSCALE=false
+ENABLE_OPENVPN=false
+ENABLE_CLOUDFLARED=false
+ENABLE_WEB_TERMINAL=true
+
+# Logging
+CLAUDE_LOG_LEVEL=info
+```
+
+### Networking Modes
+
+Claude-yolo supports two networking modes. **Choose based on your use case:**
+
+#### Mode 1: Bridge Networking (Default)
+
+**Use this for:** Multi-container setups with databases, Redis, microservices, etc.
+
+| Port | Purpose | Configurable |
+|------|---------|--------------|
+| `8000` | Application port (FastAPI, Flask, etc.) | ✅ via `APP_PORT` |
+| `7681` | Web terminal (browser access) | ✅ via `WEBTERMINAL_PORT` |
+
+**Pros:**
+- ✅ Container-to-container communication via Docker DNS
+- ✅ Network isolation between services
+- ✅ Can join custom Docker networks
+- ✅ Perfect for complex architectures
+
+**Cons:**
+- ❌ MCP OAuth callbacks won't work automatically (requires manual port forwarding)
+
+#### Mode 2: Host Networking (For MCP OAuth)
+
+**Use this for:** Single-container setup when you need MCP server authentication (Atlassian, GitHub, etc.)
+
+To enable MCP OAuth mode:
+```bash
+# Simply add the --mcp flag when running
+claude-yolo run --mcp
+
+# Or run in background
+claude-yolo run --mcp --detach
+```
+
+**What happens:**
+- Container uses host networking instead of bridge
+- All container ports automatically accessible on host
+- MCP OAuth callbacks work on any random port
+
+**Pros:**
+- ✅ One simple flag - no manual configuration
+- ✅ MCP OAuth callbacks work seamlessly
+- ✅ Zero port mapping overhead
+- ✅ Easy to switch back to bridge mode (run without `--mcp`)
+
+**Cons:**
+- ❌ Cannot join other Docker networks
+- ❌ No Docker DNS for service discovery
+- ❌ Not suitable for multi-container setups
+
+**Example workflow:**
+```bash
+# Initialize project
+claude-yolo init
+
+# Run in MCP mode for OAuth
+claude-yolo run --mcp
+
+# Authenticate with MCP servers (Atlassian, GitHub, etc.)
+# OAuth callbacks will work seamlessly
+
+# Later, if you need bridge mode for multi-container
+claude-yolo run  # Without --mcp flag
+```
+
+#### Why This Limitation Exists
+
+Claude Code uses random ephemeral ports (49152-65535) for OAuth callbacks when authenticating with MCP servers. This is a technical limitation of Claude Code's OAuth implementation - the port cannot be predicted or configured.
+
+Exposing the full ephemeral port range causes **severe performance issues**:
+- Container startup hangs or takes hours
+- Consumes 16GB+ RAM
+- Docker creates 16,384 iptables rules or docker-proxy processes
+
+**Technical details:**
+- [Claude Code Issue #2527](https://github.com/anthropics/claude-code/issues/2527) - OAuth port selection
+- [Docker Issue #14288](https://github.com/moby/moby/issues/14288) - Large port range performance
+
+## 🔧 Customization
+
+### Customize the Dockerfile
+
+Edit `.claude-yolo/Dockerfile` - there's a dedicated user customization section:
+
+```dockerfile
+# >>> USER CUSTOMIZATION START >>>
+# Add your custom tools, packages, configurations
+RUN apt-get install -y postgresql-client-15
+RUN uv pip install pandas numpy scikit-learn
+# >>> USER CUSTOMIZATION END >>>
+```
+
+Then rebuild:
+```bash
+claude-yolo build
+```
+
+### Use Customization Hooks
+
+```bash
+# Pre-build: Generate configs, fetch secrets
+vim .claude-yolo/hooks/pre-build.sh
+
+# Post-build: Tag images, push to registry
+vim .claude-yolo/hooks/post-build.sh
+
+# Pre-start: Validate environment, check VPN
+vim .claude-yolo/hooks/pre-start.sh
+```
+
+Hooks run automatically during `build` and `run`.
+
+## Running Web Applications
 
 The container exposes port **8000** by default for web applications:
 
@@ -107,18 +352,28 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8000
 
 **Change the port:** Edit `APP_PORT` in `.env` and restart the container.
 
-## Logs
+## 📊 Viewing Logs
 
-All activity is logged to `./logs/` (shared with host):
-- `commands/` - Shell commands with timestamps
-- `safety/` - Security checks and warnings
-- `git/` - Git operations
-- `claude/` - Claude Code session logs
+All activity is logged to `./logs/` (shared between host and container):
 
 ```bash
-# Watch logs in real-time
+# Use the CLI (recommended)
+claude-yolo logs                     # View all recent logs
+claude-yolo logs --type safety -f   # Follow safety checks
+claude-yolo logs --type git          # View git operations
+claude-yolo logs --type commands     # View all commands
+
+# Or directly on host
 tail -f logs/safety/checks.log
+tail -f logs/git/operations.log
 ```
+
+**Log Types:**
+- `commands/` - Every shell command executed (with timestamps)
+- `claude/` - Claude Code session logs
+- `git/` - All git operations
+- `safety/` - Security scans and safety checks
+- VPN logs: `tailscale.log`, `openvpn.log`, `cloudflared.log`
 
 ## Corporate/Compliance Mode
 

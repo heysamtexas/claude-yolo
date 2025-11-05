@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: claude-yolo
+    container_name: ${CONTAINER_NAME:-claude-yolo}
     hostname: claude-yolo
 
     # Resource limits for safety (configurable via .env)
@@ -24,13 +24,11 @@ services:
       # Persistent home directory (configs, git setup, customizations)
       - claude-home:/home/developer
 
-      # Mount projects directory (adjust host path as needed)
-      # :delegated = container-authoritative for better macOS performance
-      - ${HOST_WORKSPACE:-./workspace}:/workspace:delegated
+      # Mount project directory (parent of .claude-yolo)
+      - ${HOST_WORKSPACE:-..}:/workspace
 
       # Shared logs - both Claude and user can read/write
-      # :delegated = container-authoritative for better macOS performance
-      - ${HOST_LOGS:-./logs}:/logs:delegated
+      - ${HOST_LOGS:-../logs}:/logs
 
       # Tailscale state persistence (only used if TS_AUTHKEY is set)
       - tailscale-state:/var/lib/tailscale
@@ -54,7 +52,7 @@ services:
       # - ${HOME}/.config/gcloud:/home/developer/.config/gcloud:ro
       # - ${HOME}/.azure:/home/developer/.azure:ro
 
-    # Ports (only used when network_mode is NOT set to host)
+    # Ports
     ports:
       # Application port (for FastAPI, Flask, etc.)
       - "${APP_PORT:-8000}:8000"
@@ -107,35 +105,9 @@ services:
     devices:
       - /dev/net/tun:/dev/net/tun
 
-    # ============================================================================
-    # Network Configuration - CHOOSE ONE MODE
-    # ============================================================================
-    #
-    # MODE 1: Bridge Networking (DEFAULT - for multi-container setups)
-    # ✅ Use this for: Databases, Redis, microservices, complex architectures
-    # ❌ Limitation: MCP OAuth callbacks won't work (requires manual port forwarding)
-    #
-    # MODE 2: Host Networking (for MCP OAuth support)
-    # ✅ Use this for: Single-container setup with MCP server authentication
-    # ❌ Limitation: Cannot join other Docker networks, no container-to-container DNS
-    #
-    # PERFORMANCE NOTE: Exposing large port ranges (49152-65535) causes Docker to
-    # hang during startup and consume 16GB+ RAM. This is a known Docker limitation.
-    # See: https://github.com/moby/moby/issues/14288
-    #
-    # TO ENABLE HOST MODE FOR MCP:
-    # 1. Comment out the "networks:" line below
-    # 2. Uncomment the "network_mode: host" line
-    # 3. Restart: docker-compose down && docker-compose up -d
-    #
-    # ============================================================================
-
-    # Network settings (MODE 1: Bridge - default)
+    # Network settings
     networks:
       - claude-network
-
-    # Uncomment for MODE 2: Host networking (MCP OAuth support)
-    # network_mode: "host"
 
     # Working directory
     working_dir: /workspace
@@ -157,7 +129,7 @@ services:
 
     volumes:
       # Mount logs directory for proxy logs
-      - ${HOST_LOGS:-./logs}/proxy:/home/mitmproxy/.mitmproxy
+      - ${HOST_LOGS:-../logs}/proxy:/home/mitmproxy/.mitmproxy
       # Optional: custom mitmproxy scripts
       - ./proxy/scripts:/home/mitmproxy/scripts:ro
 

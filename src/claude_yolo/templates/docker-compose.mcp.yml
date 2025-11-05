@@ -1,0 +1,35 @@
+# ============================================================================
+# Docker Compose Override for MCP OAuth Mode
+# ============================================================================
+#
+# This file is used when running: claude-yolo run --mcp
+#
+# It overrides the default bridge networking with host networking,
+# which is required for MCP OAuth callbacks to work properly.
+#
+# Why host networking?
+# Claude Code uses random ephemeral ports (49152-65535) for OAuth callbacks.
+# Host networking makes all container ports automatically accessible on the host.
+#
+# Trade-offs:
+# ✅ MCP OAuth callbacks work seamlessly
+# ✅ No port mapping overhead
+# ❌ Cannot join other Docker networks
+# ❌ No Docker DNS for service discovery
+# ❌ Not suitable for multi-container setups
+#
+# See: https://github.com/anthropics/claude-code/issues/2527
+# ============================================================================
+
+services:
+  claude-yolo:
+    # Use host networking instead of bridge
+    network_mode: "host"
+
+    # Remove port mappings (incompatible with host networking)
+    # Using !reset to remove the key from the merged config
+    ports: !reset []
+
+    # Remove custom networks (incompatible with host networking)
+    # Using !reset to remove the key from the merged config
+    networks: !reset []

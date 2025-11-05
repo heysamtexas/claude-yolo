@@ -1,0 +1,62 @@
+#!/bin/bash
+# Git pre-push hook for safety checks
+
+GIT_LOG="/logs/git/operations.log"
+SAFETY_LOG="/logs/safety/checks.log"
+
+log_git() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] [PRE-PUSH] $@" >> "$GIT_LOG"
+}
+
+log_safety() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] [PRE-PUSH] $@" >> "$SAFETY_LOG"
+}
+
+log_git "Running pre-push safety checks"
+
+# Read stdin to get push details
+while read local_ref local_sha remote_ref remote_sha; do
+    # Get branch name
+    if [ -n "$remote_ref" ]; then
+        branch=$(echo "$remote_ref" | sed 's/refs\/heads\///')
+    else
+        branch=$(git rev-parse --abbrev-ref HEAD)
+    fi
+
+    log_git "Push attempt to branch: $branch"
+
+    # Check for force push
+    if git rev-parse --verify "$remote_sha" &>/dev/null; then
+        # Remote exists, check if we're force pushing
+        if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+            # Not a fast-forward, this is a force push
+            if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+                echo "❌ SAFETY: Force push to $branch is not allowed!"
+                log_safety "BLOCKED: Force push attempt to $branch"
+                exit 1
+            else
+                echo "⚠️  WARNING: This is a force push to $branch"
+                log_safety "WARNING: Force push to $branch"
+            fi
+        fi
+    fi
+
+    # Warn about pushing to main/master
+    if [[ "$branch" == "main" || "$branch" == "master" ]]; then
+        echo "⚠️  WARNING: Pushing directly to $branch"
+        echo "   Consider using a pull request workflow"
+        log_safety "WARNING: Direct push to $branch"
+
+        # Optional: Require confirmation
+        # echo "Are you sure you want to push to $branch? (yes/no)"
+        # read -r response
+        # if [[ ! "$response" =~ ^[Yy][Ee][Ss]$ ]]; then
+        #     log_safety "BLOCKED: User cancelled push to $branch"
+        #     exit 1
+        # fi
+    fi
+done
+
+log_git "Pre-push checks passed"
+log_safety "✓ Pre-push safety checks passed"
+exit 0

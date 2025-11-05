@@ -74,6 +74,35 @@ claude-yolo/
 - True YOLO mode - autonomous operation without permission prompts
 - Safety provided by container isolation and hooks
 
+## Networking Modes
+
+The container supports two networking modes in `docker-compose.yml`. **Claude should recommend the appropriate mode based on user needs:**
+
+### Mode 1: Bridge Networking (Default)
+- **When to recommend:** Multi-container setups (databases, Redis, microservices)
+- **Pros:** Docker DNS, network isolation, can join custom networks
+- **Cons:** MCP OAuth callbacks won't work (requires manual port forwarding)
+- **Config:** Uses `networks: - claude-network` (default in docker-compose.yml)
+
+### Mode 2: Host Networking (For MCP OAuth)
+- **When to recommend:** Single-container setup + user needs MCP server authentication (Atlassian, GitHub MCP servers)
+- **Pros:** All ports accessible, MCP OAuth works seamlessly, zero overhead
+- **Cons:** Cannot join Docker networks, no service discovery, multi-container setups won't work
+- **Config:** Uncomment `network_mode: "host"` and comment out `networks:` in docker-compose.yml
+
+### MCP OAuth Technical Background
+Claude Code uses random ephemeral ports (49152-65535) for OAuth callbacks. Exposing this full range causes:
+- Container startup hangs (hours) or complete failure
+- 16GB+ RAM consumption
+- Docker creates 16,384 iptables rules or docker-proxy processes
+
+**Decision tree for users:**
+- Planning to add databases/microservices? → Bridge mode (default)
+- Need MCP OAuth + single container only? → Host mode
+- Unsure? → Start with bridge mode (default)
+
+See [GitHub Issue #2527](https://github.com/anthropics/claude-code/issues/2527) for Claude Code's OAuth port limitation and [Docker Issue #14288](https://github.com/moby/moby/issues/14288) for port range performance issues.
+
 ## File Boundaries
 
 **Safe to edit:** `/workspace/*`, `/config/*`, `/scripts/*`, `Dockerfile`, `docker-compose.yml`, `.env`

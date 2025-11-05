@@ -45,6 +45,29 @@ These users need protection from themselves AND from potential misconfigurations
 - Safety feature validation
 - Performance benchmarks
 
+## Development Setup
+
+### Prerequisites
+- Python 3.11+
+- Docker and Docker Compose
+- Git
+
+### Set Up Environment
+
+```bash
+# Clone repository
+git clone https://github.com/anthropics/claude-yolo
+cd claude-yolo
+
+# Set up with uv
+uv venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+uv pip install -e ".[dev]"
+
+# Verify installation
+claude-yolo --help
+```
+
 ## Development Workflow
 
 1. Fork the repository
@@ -52,12 +75,20 @@ These users need protection from themselves AND from potential misconfigurations
 3. Make your changes
 4. Test thoroughly:
    ```bash
-   make build
-   make test
-   make shell
-   # Test your feature
+   # Run tests
+   uv run pytest
+
+   # Lint code
+   uv run ruff check .
+   uv run mypy src/
+
+   # Test CLI manually
+   cd /tmp/test-project
+   claude-yolo init
+   claude-yolo build
+   claude-yolo run
    ```
-5. Update documentation (README.md, CLAUDE.md)
+5. Update documentation (README.md, CLAUDE.md, docstrings)
 6. Submit a pull request
 
 ## Testing Checklist
