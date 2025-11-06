@@ -13,7 +13,6 @@ from claude_yolo.init import (
     generate_default_env,
     get_templates_dir,
     init_project,
-    update_gitignore,
 )
 
 
@@ -44,30 +43,40 @@ def test_init_project_creates_structure(tmp_path: Path) -> None:
     assert (tmp_path / ".claude-yolo" / "hooks").is_dir()
     assert (tmp_path / ".claude-yolo" / "scripts").is_dir()
 
-    # Verify logs structure
-    assert (tmp_path / "logs").is_dir()
-    assert (tmp_path / "logs" / "commands").is_dir()
-    assert (tmp_path / "logs" / "claude").is_dir()
-    assert (tmp_path / "logs" / "git").is_dir()
-    assert (tmp_path / "logs" / "safety").is_dir()
+    # Verify logs structure inside .claude-yolo/
+    assert (tmp_path / ".claude-yolo" / "logs").is_dir()
+    assert (tmp_path / ".claude-yolo" / "logs" / "commands").is_dir()
+    assert (tmp_path / ".claude-yolo" / "logs" / "claude").is_dir()
+    assert (tmp_path / ".claude-yolo" / "logs" / "git").is_dir()
+    assert (tmp_path / ".claude-yolo" / "logs" / "safety").is_dir()
 
-    # Verify .env created
-    assert (tmp_path / ".env").exists()
+    # Verify home directory inside .claude-yolo/
+    assert (tmp_path / ".claude-yolo" / "home").is_dir()
 
-    # Verify .gitignore created
-    assert (tmp_path / ".gitignore").exists()
+    # Verify .env created inside .claude-yolo/
+    assert (tmp_path / ".claude-yolo" / ".env").exists()
+
+    # Verify .gitignore created inside .claude-yolo/ (to prevent committing state)
+    assert (tmp_path / ".claude-yolo" / ".gitignore").exists()
+    gitignore_content = (tmp_path / ".claude-yolo" / ".gitignore").read_text()
+    assert gitignore_content.strip() == "*"
 
 
 def test_init_project_minimal_excludes_vpn(tmp_path: Path) -> None:
-    """Test that minimal flag excludes VPN configurations."""
+    """Test that minimal flag creates empty VPN directories for Docker mount compatibility."""
     os.chdir(tmp_path)
 
     init_project(tmp_path, minimal=True)
 
-    # Should not have VPN configs
-    assert not (tmp_path / ".claude-yolo" / "tailscale").exists()
-    assert not (tmp_path / ".claude-yolo" / "openvpn").exists()
-    assert not (tmp_path / ".claude-yolo" / "cloudflared").exists()
+    # Should have empty VPN directories (for Docker mount compatibility)
+    assert (tmp_path / ".claude-yolo" / "tailscale").exists()
+    assert (tmp_path / ".claude-yolo" / "openvpn").exists()
+    assert (tmp_path / ".claude-yolo" / "cloudflared").exists()
+
+    # But they should be empty (no config files)
+    assert len(list((tmp_path / ".claude-yolo" / "tailscale").iterdir())) == 0
+    assert len(list((tmp_path / ".claude-yolo" / "openvpn").iterdir())) == 0
+    assert len(list((tmp_path / ".claude-yolo" / "cloudflared").iterdir())) == 0
 
     # Should still have core files
     assert (tmp_path / ".claude-yolo" / "Dockerfile").exists()
@@ -88,48 +97,6 @@ def test_init_project_with_existing_directory(tmp_path: Path) -> None:
     with patch("claude_yolo.init.confirm", return_value=False):
         with pytest.raises(typer.Exit):
             init_project(tmp_path, minimal=False)
-
-
-def test_update_gitignore_creates_new(tmp_path: Path) -> None:
-    """Test that update_gitignore creates new .gitignore."""
-    gitignore = tmp_path / ".gitignore"
-
-    update_gitignore(gitignore)
-
-    content = gitignore.read_text()
-    assert "# claude-yolo" in content
-    assert "logs/" in content
-    assert ".env" in content
-
-
-def test_update_gitignore_no_duplicates(tmp_path: Path) -> None:
-    """Test that update_gitignore doesn't add duplicates."""
-    gitignore = tmp_path / ".gitignore"
-
-    # Create initial gitignore
-    update_gitignore(gitignore)
-
-    # Update again
-    update_gitignore(gitignore)
-
-    content = gitignore.read_text()
-    # Should only appear once
-    assert content.count("# claude-yolo") == 1
-
-
-def test_update_gitignore_preserves_existing(tmp_path: Path) -> None:
-    """Test that update_gitignore preserves existing content."""
-    gitignore = tmp_path / ".gitignore"
-
-    # Write existing content
-    gitignore.write_text("# My project\n*.pyc\n__pycache__/\n")
-
-    update_gitignore(gitignore)
-
-    content = gitignore.read_text()
-    assert "# My project" in content
-    assert "*.pyc" in content
-    assert "# claude-yolo" in content
 
 
 def test_generate_default_env() -> None:

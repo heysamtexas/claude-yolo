@@ -4,7 +4,7 @@ services:
   # ============================================================================
   claude-yolo:
     build:
-      context: .
+      context: .claude-yolo
       dockerfile: Dockerfile
     container_name: ${CONTAINER_NAME:-claude-yolo}
     hostname: claude-yolo
@@ -23,23 +23,24 @@ services:
     volumes:
       # Home directory bind mount (configs, git setup, customizations)
       # :delegated = container-authoritative for better macOS performance
-      - ${HOST_HOME:-../home}:/home/developer:delegated
+      # NOTE: Paths are relative to project directory (due to --project-directory flag)
+      - ${HOST_HOME:-./.claude-yolo/home}:/home/developer:delegated
 
-      # Mount project directory (parent of .claude-yolo)
-      - ${HOST_WORKSPACE:-..}:/workspace
+      # Mount project directory as workspace
+      - ${HOST_WORKSPACE:-.}:/workspace
 
       # Shared logs - both Claude and user can read/write
-      - ${HOST_LOGS:-../logs}:/logs
+      - ${HOST_LOGS:-./.claude-yolo/logs}:/logs
 
       # Tailscale state persistence (only used if TS_AUTHKEY is set)
       - tailscale-state:/var/lib/tailscale
 
       # OpenVPN configuration directory (only used if OPENVPN_CONFIG is set)
-      - ${HOST_OPENVPN_DIR:-./openvpn}:/openvpn:ro
+      - ${HOST_OPENVPN_DIR:-./.claude-yolo/openvpn}:/openvpn:ro
 
       # Cloudflared state persistence and configuration
       - cloudflared-state:/home/developer/.cloudflared
-      - ${HOST_CLOUDFLARED_DIR:-./cloudflared}:/cloudflared:ro
+      - ${HOST_CLOUDFLARED_DIR:-./.claude-yolo/cloudflared}:/cloudflared:ro
 
       # Optional: Mount host gitconfig for copying (not direct use)
       # Uncomment and set HOST_GITCONFIG in .env to copy your git identity
@@ -130,9 +131,9 @@ services:
 
     volumes:
       # Mount logs directory for proxy logs
-      - ${HOST_LOGS:-../logs}/proxy:/home/mitmproxy/.mitmproxy
+      - ${HOST_LOGS:-./.claude-yolo/logs}/proxy:/home/mitmproxy/.mitmproxy
       # Optional: custom mitmproxy scripts
-      - ./proxy/scripts:/home/mitmproxy/scripts:ro
+      - ./.claude-yolo/proxy/scripts:/home/mitmproxy/scripts:ro
 
     ports:
       - "${PROXY_PORT:-8080}:8080"          # Proxy port
@@ -167,7 +168,7 @@ networks:
 # ============================================================================
 volumes:
   tailscale-state:
-    name: claude-yolo_tailscale-state
+    name: ${COMPOSE_PROJECT_NAME:-claude-yolo}_tailscale-state
 
   cloudflared-state:
-    name: claude-yolo_cloudflared-state
+    name: ${COMPOSE_PROJECT_NAME:-claude-yolo}_cloudflared-state

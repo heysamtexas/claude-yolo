@@ -12,9 +12,12 @@ from rich.table import Table
 console = Console()
 
 
-def check_initialized() -> Path:
+def check_initialized(project_root: Path) -> Path:
     """
-    Check if claude-yolo is initialized in the current directory.
+    Check if claude-yolo is initialized in the given project directory.
+
+    Args:
+        project_root: Path to the project root directory
 
     Returns:
         Path to .claude-yolo directory
@@ -22,7 +25,7 @@ def check_initialized() -> Path:
     Raises:
         typer.Exit: If not initialized
     """
-    claude_dir = Path.cwd() / ".claude-yolo"
+    claude_dir = project_root / ".claude-yolo"
 
     if not claude_dir.exists():
         console.print("[red]Error: claude-yolo not initialized in this directory.[/red]")
@@ -32,14 +35,15 @@ def check_initialized() -> Path:
     return claude_dir
 
 
-def run_hook(hook_name: str) -> None:
+def run_hook(project_root: Path, hook_name: str) -> None:
     """
     Run a hook script if it exists.
 
     Args:
+        project_root: Path to the project root directory
         hook_name: Name of the hook (e.g., "pre-build", "post-build")
     """
-    claude_dir = Path.cwd() / ".claude-yolo"
+    claude_dir = project_root / ".claude-yolo"
     hook_file = claude_dir / "hooks" / f"{hook_name}.sh"
 
     if hook_file.exists() and hook_file.is_file():
@@ -56,12 +60,16 @@ def run_hook(hook_name: str) -> None:
 
 
 def docker_compose_cmd(
-    args: list[str], check: bool = True, extra_compose_files: list[str] | None = None
+    project_root: Path,
+    args: list[str],
+    check: bool = True,
+    extra_compose_files: list[str] | None = None
 ) -> subprocess.CompletedProcess:
     """
     Run a docker-compose command.
 
     Args:
+        project_root: Path to the project root directory
         args: Arguments to pass to docker-compose
         check: Whether to raise exception on non-zero exit
         extra_compose_files: Additional compose files to include (e.g., ["docker-compose.mcp.yml"])
@@ -69,14 +77,21 @@ def docker_compose_cmd(
     Returns:
         CompletedProcess instance
     """
-    claude_dir = check_initialized()
+    claude_dir = check_initialized(project_root)
     compose_file = claude_dir / "docker-compose.yml"
 
     if not compose_file.exists():
         console.print(f"[red]Error: docker-compose.yml not found at {compose_file}[/red]")
         raise typer.Exit(1)
 
-    cmd = ["docker-compose", "-f", str(compose_file)]
+    # Use --project-directory for path resolution and --env-file for .claude-yolo/.env
+    env_file = claude_dir / ".env"
+    cmd = [
+        "docker-compose",
+        "--project-directory", str(project_root),
+        "--env-file", str(env_file),
+        "-f", str(compose_file)
+    ]
 
     # Add extra compose files if provided
     if extra_compose_files:
@@ -92,18 +107,19 @@ def docker_compose_cmd(
     return subprocess.run(cmd, check=check)
 
 
-def build_image(no_cache: bool = False, pull: bool = True) -> None:
+def build_image(project_root: Path, no_cache: bool = False, pull: bool = True) -> None:
     """
     Build the Docker image.
 
     Args:
+        project_root: Path to the project root directory
         no_cache: Build without using cache
         pull: Pull latest base images
     """
-    check_initialized()
+    check_initialized(project_root)
 
     # Run pre-build hook
-    run_hook("pre-build")
+    run_hook(project_root, "pre-build")
 
     console.print("[bold]Building Docker image...[/bold]")
 
@@ -114,35 +130,36 @@ def build_image(no_cache: bool = False, pull: bool = True) -> None:
         args.append("--pull")
 
     try:
-        docker_compose_cmd(args)
+        docker_compose_cmd(project_root, args)
         console.print("\n[green]✓ Build completed successfully[/green]")
 
         # Run post-build hook
-        run_hook("post-build")
+        run_hook(project_root, "post-build")
 
     except subprocess.CalledProcessError as e:
         console.print(f"\n[red]✗ Build failed with exit code {e.returncode}[/red]")
         raise typer.Exit(e.returncode) from None
 
 
-def run_container(detach: bool = False, build_first: bool = True, mcp: bool = False) -> None:
+def run_container(project_root: Path, detach: bool = False, build_first: bool = True, mcp: bool = False) -> None:
     """
     Start the container.
 
     Args:
+        project_root: Path to the project root directory
         detach: Run in background
         build_first: Build image before starting
         mcp: Enable MCP OAuth mode (host networking)
     """
-    check_initialized()
+    check_initialized(project_root)
 
     if build_first:
         console.print("[dim]Building image first...[/dim]\n")
-        build_image(no_cache=False, pull=False)
+        build_image(project_root, no_cache=False, pull=False)
         console.print()
 
     # Run pre-start hook
-    run_hook("pre-start")
+    run_hook(project_root, "pre-start")
 
     # Show MCP mode message if enabled
     if mcp:
@@ -159,7 +176,7 @@ def run_container(detach: bool = False, build_first: bool = True, mcp: bool = Fa
     extra_files = ["docker-compose.mcp.yml"] if mcp else None
 
     try:
-        docker_compose_cmd(args, extra_compose_files=extra_files)
+        docker_compose_cmd(project_root, args, extra_compose_files=extra_files)
 
         if detach:
             console.print("\n[green]✓ Container started in background[/green]")
@@ -177,14 +194,19 @@ def run_container(detach: bool = False, build_first: bool = True, mcp: bool = Fa
         console.print("\n[yellow]Container stopped by user[/yellow]")
 
 
-def exec_shell() -> None:
-    """Open a shell in the running container."""
-    check_initialized()
+def exec_shell(project_root: Path) -> None:
+    """
+    Open a shell in the running container.
+
+    Args:
+        project_root: Path to the project root directory
+    """
+    check_initialized(project_root)
 
     console.print("[cyan]Opening shell in container...[/cyan]\n")
 
     # Get container name from .env or use default
-    container_name = get_container_name()
+    container_name = get_container_name(project_root)
 
     cmd = ["docker", "exec", "-it", container_name, "/bin/bash"]
 
@@ -199,53 +221,60 @@ def exec_shell() -> None:
         raise typer.Exit(e.returncode) from None
 
 
-def stop_container() -> None:
-    """Stop the container."""
-    check_initialized()
+def stop_container(project_root: Path) -> None:
+    """
+    Stop the container.
+
+    Args:
+        project_root: Path to the project root directory
+    """
+    check_initialized(project_root)
 
     console.print("[bold]Stopping container...[/bold]")
 
     try:
-        docker_compose_cmd(["stop"])
+        docker_compose_cmd(project_root, ["stop"])
         console.print("\n[green]✓ Container stopped[/green]")
     except subprocess.CalledProcessError as e:
         console.print(f"\n[red]✗ Failed to stop container (exit code {e.returncode})[/red]")
         raise typer.Exit(e.returncode) from None
 
 
-def restart_container(build_first: bool = False) -> None:
+def restart_container(project_root: Path, build_first: bool = False) -> None:
     """
     Restart the container.
 
     Args:
+        project_root: Path to the project root directory
         build_first: Rebuild image before restarting
     """
-    check_initialized()
+    check_initialized(project_root)
 
     if build_first:
         console.print("[dim]Rebuilding image...[/dim]\n")
-        build_image(no_cache=False, pull=False)
+        build_image(project_root, no_cache=False, pull=False)
         console.print()
 
     console.print("[bold]Restarting container...[/bold]")
 
     try:
-        docker_compose_cmd(["restart"])
+        docker_compose_cmd(project_root, ["restart"])
         console.print("\n[green]✓ Container restarted[/green]")
     except subprocess.CalledProcessError as e:
         console.print(f"\n[red]✗ Failed to restart container (exit code {e.returncode})[/red]")
         raise typer.Exit(e.returncode) from None
 
 
-def clean_resources(volumes: bool = False, force: bool = False) -> None:
+def clean_resources(project_root: Path, volumes: bool = False, force: bool = False) -> None:
     """
     Clean up containers and optionally volumes.
 
     Args:
+        project_root: Path to the project root directory
         volumes: Also remove volumes
         force: Don't ask for confirmation
     """
-    check_initialized()
+    check_initialized(project_root)
 
     if not force:
         message = "Remove containers"
@@ -264,21 +293,26 @@ def clean_resources(volumes: bool = False, force: bool = False) -> None:
         args.append("-v")
 
     try:
-        docker_compose_cmd(args)
+        docker_compose_cmd(project_root, args)
         console.print("\n[green]✓ Cleanup complete[/green]")
     except subprocess.CalledProcessError as e:
         console.print(f"\n[red]✗ Cleanup failed (exit code {e.returncode})[/red]")
         raise typer.Exit(e.returncode) from None
 
 
-def show_status() -> None:
-    """Show status of the container and resources."""
-    check_initialized()
+def show_status(project_root: Path) -> None:
+    """
+    Show status of the container and resources.
+
+    Args:
+        project_root: Path to the project root directory
+    """
+    check_initialized(project_root)
 
     console.print("[bold]Claude YOLO Status[/bold]\n")
 
     # Get container status
-    container_name = get_container_name()
+    container_name = get_container_name(project_root)
 
     try:
         result = subprocess.run(
@@ -394,14 +428,17 @@ def show_enabled_features() -> None:
         pass
 
 
-def get_container_name() -> str:
+def get_container_name(project_root: Path) -> str:
     """
-    Get the container name from .env or use default.
+    Get the container name from .claude-yolo/.env or use default.
+
+    Args:
+        project_root: Path to the project root directory
 
     Returns:
         Container name
     """
-    env_file = Path.cwd() / ".env"
+    env_file = project_root / ".claude-yolo" / ".env"
 
     if env_file.exists():
         try:

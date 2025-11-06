@@ -24,6 +24,7 @@ LOG_TYPES = {
 
 
 def show_logs(
+    project_root: Path,
     log_type: str | None = None,
     follow: bool = False,
     tail: int = 100,
@@ -32,11 +33,12 @@ def show_logs(
     Show logs from the claude-yolo environment.
 
     Args:
+        project_root: Path to the project root directory
         log_type: Type of logs to show (or None for all)
         follow: Follow log output (like tail -f)
         tail: Number of lines to show from end
     """
-    logs_dir = Path.cwd() / "logs"
+    logs_dir = project_root / ".claude-yolo" / "logs"
 
     if not logs_dir.exists():
         console.print("[yellow]No logs directory found.[/yellow]")
