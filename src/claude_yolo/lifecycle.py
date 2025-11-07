@@ -208,7 +208,7 @@ def exec_shell(project_root: Path) -> None:
     # Get container name from .env or use default
     container_name = get_container_name(project_root)
 
-    cmd = ["docker", "exec", "-it", container_name, "/bin/bash"]
+    cmd = ["docker", "exec", "-it", container_name, "tmux", "new-session", "-A", "-s", "claude-yolo"]
 
     try:
         subprocess.run(cmd, check=True)
@@ -364,6 +364,22 @@ def show_status(project_root: Path) -> None:
             # Show enabled features
             show_enabled_features()
 
+            # Show webterminal status
+            wt_info = get_webterminal_info(container_name, project_root)
+            console.print("[bold]Web Terminal:[/bold]")
+
+            if wt_info["enabled"]:
+                if state["Running"] and wt_info["running"]:
+                    console.print(f"  [green]✓[/green] Running at [cyan]{wt_info['url']}[/cyan]")
+                elif state["Running"]:
+                    console.print(f"  [yellow]✗[/yellow] Enabled but not running (check logs)")
+                else:
+                    console.print(f"  [dim]  Enabled (container not running)[/dim]")
+            else:
+                console.print(f"  [dim]  Not enabled[/dim]")
+
+            console.print()
+
         else:
             console.print(f"[yellow]Container '{container_name}' does not exist[/yellow]")
             console.print("\nRun [cyan]claude-yolo run[/cyan] to start the container.")
@@ -405,7 +421,7 @@ def show_enabled_features() -> None:
         "ENABLE_TAILSCALE": "Tailscale VPN",
         "ENABLE_OPENVPN": "OpenVPN",
         "ENABLE_CLOUDFLARED": "Cloudflared Tunnel",
-        "ENABLE_WEB_TERMINAL": "Web Terminal",
+        "WEBTERMINAL_ENABLED": "Web Terminal",
     }
 
     enabled = []
@@ -450,3 +466,55 @@ def get_container_name(project_root: Path) -> str:
             pass
 
     return "claude-yolo"
+
+
+def get_webterminal_info(container_name: str, project_root: Path) -> dict:
+    """
+    Get webterminal status and connection information.
+
+    Args:
+        container_name: Name of the Docker container
+        project_root: Path to the project root directory
+
+    Returns:
+        Dict with keys: enabled (bool), running (bool), port (str), url (str)
+    """
+    env_file = project_root / ".claude-yolo" / ".env"
+
+    info = {
+        "enabled": False,
+        "running": False,
+        "port": "7681",
+        "url": ""
+    }
+
+    # Read .env to check if webterminal is enabled and get port
+    if env_file.exists():
+        try:
+            with env_file.open() as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("WEBTERMINAL_ENABLED="):
+                        value = line.split("=", 1)[1].strip().lower()
+                        info["enabled"] = value == "true"
+                    elif line.startswith("WEBTERMINAL_PORT="):
+                        info["port"] = line.split("=", 1)[1].strip()
+        except Exception:
+            pass
+
+    # If enabled, check if ttyd is actually running
+    if info["enabled"]:
+        try:
+            result = subprocess.run(
+                ["docker", "exec", container_name, "pgrep", "-f", f"ttyd.*{info['port']}"],
+                capture_output=True,
+                check=False,
+            )
+            info["running"] = result.returncode == 0
+        except Exception:
+            info["running"] = False
+
+        # Generate URL
+        info["url"] = f"http://localhost:{info['port']}"
+
+    return info
