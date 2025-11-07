@@ -30,15 +30,33 @@ if [ ! -d "$HOME/.config/git" ]; then
     echo "🔧 First run detected - setting up configuration..."
     log_safety "First run - copying configuration templates"
 
+    # Create .config directory first
+    mkdir -p "$HOME/.config"
+
     # Copy config templates to user home (no-clobber to preserve existing files)
     # Use cp -a to preserve permissions
-    cp -an /opt/config-templates/* "$HOME/.config/" 2>/dev/null || true
+    if ! cp -an /opt/config-templates/* "$HOME/.config/"; then
+        echo "  ❌ ERROR: Failed to copy configuration templates"
+        echo "  This is a critical failure - safety features may not work."
+        log_safety "ERROR: Failed to copy configuration templates"
+        exit 1
+    fi
+
     # Ensure hooks are executable (in case permissions were lost)
-    chmod +x "$HOME/.config/git/hooks"/* 2>/dev/null || true
+    if ! chmod +x "$HOME/.config/git/hooks"/*; then
+        echo "  ❌ ERROR: Failed to make git hooks executable"
+        echo "  This is a critical failure - git safety hooks will not run."
+        log_safety "ERROR: Failed to chmod git hooks"
+        exit 1
+    fi
 
     # Make scripts available in PATH
     mkdir -p "$HOME/bin"
-    ln -sf /opt/scripts/* "$HOME/bin/" 2>/dev/null || true
+    if ! ln -sf /opt/scripts/* "$HOME/bin/"; then
+        echo "  ⚠️  WARNING: Failed to symlink scripts to PATH"
+        echo "  Scripts may not be easily accessible."
+        log_safety "WARNING: Failed to symlink scripts to ~/bin"
+    fi
 
     echo "✅ Configuration templates copied"
     log_safety "Configuration templates copied to ~/.config"
@@ -108,6 +126,46 @@ fi
 git config --global core.hooksPath "$HOME/.config/git/hooks"
 log_safety "Git hooks path configured"
 
+# Configure npm for user-local global packages
+mkdir -p "$HOME/.npm-global"
+echo "prefix=$HOME/.npm-global" > "$HOME/.npmrc"
+
+# Add npm global bin to PATH in both .bashrc and .profile for all shell types
+if ! grep -q "/.npm-global/bin" "$HOME/.bashrc" 2>/dev/null; then
+    echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.bashrc"
+fi
+if ! grep -q "/.npm-global/bin" "$HOME/.profile" 2>/dev/null; then
+    echo 'export PATH="$HOME/.npm-global/bin:$PATH"' >> "$HOME/.profile"
+fi
+export PATH="$HOME/.npm-global/bin:$PATH"
+
+# Install Claude Code if not already installed
+if ! command -v claude &> /dev/null; then
+    echo "  Installing Claude Code..."
+    # Use NPM_CONFIG_PREFIX to ensure npm uses user directory (more reliable than .npmrc)
+    export NPM_CONFIG_PREFIX="$HOME/.npm-global"
+    echo "  npm prefix: $(npm config get prefix)"
+
+    if ! npm install -g @anthropic-ai/claude-code; then
+        echo ""
+        echo "  ❌ ERROR: Failed to install Claude Code"
+        echo "  This is a critical failure - the container will not function correctly."
+        echo ""
+        echo "  Troubleshooting:"
+        echo "  1. Check network connectivity: curl -I https://registry.npmjs.org"
+        echo "  2. Check npm logs: cat ~/.npm/_logs/*-debug-*.log"
+        echo "  3. Try manual install: NPM_CONFIG_PREFIX=~/.npm-global npm install -g @anthropic-ai/claude-code"
+        echo ""
+        log_safety "ERROR: Claude Code installation failed"
+        exit 1
+    fi
+
+    echo "  ✅ Claude Code installed successfully"
+    log_safety "Claude Code installed via npm"
+else
+    log_safety "Claude Code already installed"
+fi
+
 # Welcome message
 cat << "EOF"
 ╔═══════════════════════════════════════════════════════════╗
@@ -129,7 +187,8 @@ echo ""
 # Set up command logging wrapper (optional - captures bash history)
 if [ "$ENABLE_COMMAND_LOGGING" = "true" ]; then
     touch ~/.bash_history
-    export PROMPT_COMMAND='history -a; tail -n1 ~/.bash_history 2>/dev/null >> '"$COMMAND_LOG"
+    # Note: If tail fails, PROMPT_COMMAND will show error but shell will continue
+    export PROMPT_COMMAND='history -a; tail -n1 ~/.bash_history >> '"$COMMAND_LOG"' || echo "[$(date +%Y-%m-%d\ %H:%M:%S)] ERROR: Failed to log command" >> '"$COMMAND_LOG"
     log_safety "Command logging enabled"
 fi
 

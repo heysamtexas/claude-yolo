@@ -43,6 +43,7 @@ RUN apt-get update && apt-get install -y \
     nano \
     tmux \
     htop \
+    tree \
     && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
@@ -178,10 +179,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code (official installation method)
-# Note: This will be installed via npm when Claude Code publishes stable releases
-# For now, this is a placeholder for the official installation
-RUN npm install -g @anthropic-ai/claude-code || echo "Claude Code will be installed via official method"
+# Claude Code will be installed as developer user after USER switch for proper permissions
 
 # Install ttyd for optional web terminal access
 # Detect architecture and download appropriate binary
@@ -234,6 +232,9 @@ RUN chmod +x /opt/scripts/*.sh && \
 
 # Switch to non-root user
 USER developer
+
+# Claude Code will be installed at runtime via init.sh (not at build time)
+# This is necessary because /home/developer is a volume mount that would mask build-time installations
 
 # Default command - init.sh will be sourced via docker-compose
 CMD ["/bin/bash"]

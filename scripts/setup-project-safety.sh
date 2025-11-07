@@ -48,7 +48,12 @@ fi
 if command -v detect-secrets &> /dev/null; then
     if [ ! -f ".secrets.baseline" ]; then
         echo "Creating secrets detection baseline..."
-        detect-secrets scan > .secrets.baseline 2>/dev/null || true
+        if ! detect-secrets scan > .secrets.baseline; then
+            echo "  ❌ ERROR: Failed to create secrets detection baseline"
+            echo "  This is a critical failure - secrets scanning will not work."
+            log_safety "ERROR: Failed to create .secrets.baseline"
+            exit 1
+        fi
         log_safety "Created .secrets.baseline"
     fi
 fi
@@ -107,7 +112,22 @@ echo ""
 echo "Running initial safety scan..."
 if command -v gitleaks &> /dev/null; then
     echo "Scanning for secrets..."
-    gitleaks detect --no-git --verbose --redact >> "$SAFETY_LOG" 2>&1 || echo "⚠️  Check logs for potential issues"
+    if gitleaks detect --no-git --verbose --redact >> "$SAFETY_LOG" 2>&1; then
+        echo "  ✅ No secrets found"
+        log_safety "Initial scan: No secrets found"
+    else
+        GITLEAKS_EXIT=$?
+        if [ $GITLEAKS_EXIT -eq 1 ]; then
+            echo "  ⚠️  WARNING: Potential secrets detected!"
+            echo "  Check $SAFETY_LOG for details"
+            log_safety "WARNING: Initial scan found potential secrets"
+        else
+            echo "  ❌ ERROR: Gitleaks scan failed with exit code $GITLEAKS_EXIT"
+            echo "  Check $SAFETY_LOG for details"
+            log_safety "ERROR: Gitleaks scan failed with exit code $GITLEAKS_EXIT"
+            exit 1
+        fi
+    fi
 fi
 
 echo ""

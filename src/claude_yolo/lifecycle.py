@@ -355,8 +355,12 @@ def show_status(project_root: Path) -> None:
                     cpu, mem = stats_result.stdout.strip().split("\t")
                     table.add_row("CPU Usage", cpu)
                     table.add_row("Memory Usage", mem)
-                except (subprocess.CalledProcessError, ValueError):
-                    pass
+                except (subprocess.CalledProcessError, ValueError) as e:
+                    # Non-critical: stats display only
+                    console.print(
+                        f"  [dim](Could not fetch stats: {type(e).__name__})[/dim]",
+                        style="dim",
+                    )
 
             console.print(table)
             console.print()
@@ -440,8 +444,9 @@ def show_enabled_features() -> None:
                 console.print(f"  • {feature}")
             console.print()
 
-    except Exception:
-        pass
+    except (IOError, OSError) as e:
+        # Non-critical: feature display only
+        console.print(f"[dim](Could not read .env: {e})[/dim]", style="dim")
 
 
 def get_container_name(project_root: Path) -> str:
@@ -462,8 +467,12 @@ def get_container_name(project_root: Path) -> str:
                 for line in f:
                     if line.startswith("CONTAINER_NAME="):
                         return line.split("=", 1)[1].strip()
-        except Exception:
-            pass
+        except (IOError, OSError, ValueError) as e:
+            # Non-critical: will use default name
+            console.print(
+                f"[dim](Could not read container name from .env: {e}, using default)[/dim]",
+                style="dim",
+            )
 
     return "claude-yolo"
 
@@ -499,8 +508,12 @@ def get_webterminal_info(container_name: str, project_root: Path) -> dict:
                         info["enabled"] = value == "true"
                     elif line.startswith("WEBTERMINAL_PORT="):
                         info["port"] = line.split("=", 1)[1].strip()
-        except Exception:
-            pass
+        except (IOError, OSError, ValueError) as e:
+            # Non-critical: will use defaults
+            console.print(
+                f"[dim](Could not read webterminal settings: {e}, using defaults)[/dim]",
+                style="dim",
+            )
 
     # If enabled, check if ttyd is actually running
     if info["enabled"]:
@@ -511,7 +524,11 @@ def get_webterminal_info(container_name: str, project_root: Path) -> dict:
                 check=False,
             )
             info["running"] = result.returncode == 0
-        except Exception:
+        except (subprocess.SubprocessError, FileNotFoundError) as e:
+            # Non-critical: process check failed, assume not running
+            console.print(
+                f"[dim](Could not check webterminal process: {e})[/dim]", style="dim"
+            )
             info["running"] = False
 
         # Generate URL

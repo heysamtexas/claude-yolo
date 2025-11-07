@@ -8,7 +8,7 @@ Docker-based Claude Code environment with safety features (secrets scanning, git
 
 ## Available Tools
 
-**Core:** git, gh, jq, ripgrep (rg), vim, nano, tmux, htop
+**Core:** git, gh, jq, ripgrep (rg), vim, nano, tmux, htop, tree
 **Cloud:** aws, az, gcloud
 **Kubernetes:** kubectl, helm, k9s, docker, docker-compose
 **IaC:** terraform, tfsec
