@@ -84,7 +84,8 @@ The container supports two networking modes in `docker-compose.yml`. **Claude sh
 - **When to recommend:** Single-container setup + user needs MCP server authentication (Atlassian, GitHub MCP servers)
 - **Pros:** All ports accessible, MCP OAuth works seamlessly, zero overhead
 - **Cons:** Cannot join Docker networks, no service discovery, multi-container setups won't work
-- **Config:** Uncomment `network_mode: "host"` and comment out `networks:` in docker-compose.yml
+- **Config:** Use `claude-yolo run --mcp` flag (automatically applies host networking)
+  - **Advanced:** Manually edit docker-compose.yml - uncomment `network_mode: "host"` and comment out `networks:`
 
 ### MCP OAuth Technical Background
 Claude Code uses random ephemeral ports (49152-65535) for OAuth callbacks. Exposing this full range causes:

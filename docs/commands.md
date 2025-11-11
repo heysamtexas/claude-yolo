@@ -146,7 +146,7 @@ claude-yolo run --no-build
 
 ### `shell`
 
-Open an interactive shell in the running container.
+Open an interactive shell in the running container. Uses persistent tmux sessions so you can disconnect and reconnect without losing your work.
 
 ```bash
 claude-yolo shell
@@ -154,13 +154,15 @@ claude-yolo shell
 
 **Examples:**
 ```bash
-# Open bash shell
+# Open persistent tmux shell
 claude-yolo shell
 
 # Then inside container:
 # - Run your development commands
 # - Test your application
 # - Use all installed tools
+# - Disconnect with Ctrl+B then D
+# - Reconnect anytime with claude-yolo shell
 ```
 
 ---
@@ -244,6 +246,7 @@ claude-yolo status
 - Container running status
 - Resource usage (CPU, memory)
 - Enabled VPN/proxy features
+- Web terminal URL and status (if enabled)
 - Port mappings
 
 **Examples:**
@@ -288,10 +291,14 @@ claude-yolo logs claude --follow
 ```
 
 **Log Types:**
-- `commands` - All shell commands executed
-- `claude` - Claude Code session logs
-- `git` - Git operations
-- `safety` - Security scans and safety checks
+- `commands` - All shell commands executed (directory)
+- `claude` - Claude Code session logs (directory)
+- `git` - Git operations (directory)
+- `safety` - Security scans and safety checks (directory)
+- `proxy` - Proxy logs (single file, if proxy enabled)
+- `tailscale` - Tailscale VPN logs (single file, if enabled)
+- `openvpn` - OpenVPN logs (single file, if enabled)
+- `cloudflared` - Cloudflare Tunnel logs (single file, if enabled)
 
 ---
 
@@ -343,7 +350,9 @@ claude-yolo vpn status
 - Cloudflare Tunnel configuration
 - Enabled/disabled status for each
 
-**Note:** VPN management is primarily done through `.env` configuration. See [VPN Setup Guide](vpn-setup.md).
+**Notes:**
+- VPN management is primarily done through `.env` configuration. See [VPN Setup Guide](vpn-setup.md).
+- Connection status checking is not yet fully implemented and may show "Unknown" for active connections.
 
 ---
 

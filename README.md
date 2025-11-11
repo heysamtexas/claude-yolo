@@ -70,10 +70,10 @@ claude-yolo checkout user/repo --auto-start
 **Option 2: Initialize an existing project**
 ```bash
 cd my-existing-project
-claude-yolo init           # Set up claude-yolo infrastructure
+claude-yolo init           # Set up claude-yolo infrastructure (auto-detects git config)
 claude-yolo build          # Build Docker image (5-10 min first time)
 claude-yolo run            # Start container
-claude-yolo shell          # Open shell
+claude-yolo shell          # Open persistent tmux shell
 ```
 
 ### Start Coding
@@ -159,50 +159,51 @@ When you run `claude-yolo init`, it creates:
 
 ```
 my-project/
-├── .claude-yolo/              # All infrastructure
-│   ├── Dockerfile             # Customizable (edit freely!)
-│   ├── docker-compose.yml     # Container config
-│   ├── config/                # Git hooks, pre-commit
-│   ├── scripts/               # Safety setup scripts
-│   ├── tailscale/            # Tailscale configs
-│   ├── openvpn/              # OpenVPN configs
-│   ├── cloudflared/          # Cloudflared configs
-│   ├── proxy/                # Proxy settings
-│   └── hooks/                # Customization hooks
-│       ├── pre-build.sh       # Before Docker build
-│       ├── post-build.sh      # After Docker build
-│       └── pre-start.sh       # Before container start
-├── logs/                      # Runtime logs (auto-created)
-│   ├── commands/             # All shell commands
-│   ├── claude/               # Claude Code sessions
-│   ├── git/                  # Git operations
-│   ├── safety/               # Safety checks
-│   ├── proxy.log
-│   ├── tailscale.log
-│   ├── openvpn.log
-│   └── cloudflared.log
-└── .env                       # Your configuration
+└── .claude-yolo/              # All infrastructure (isolated)
+    ├── Dockerfile             # Customizable (edit freely!)
+    ├── docker-compose.yml     # Container config
+    ├── .env                   # Your configuration
+    ├── config/                # Git hooks, pre-commit
+    ├── scripts/               # Safety setup scripts
+    ├── tailscale/             # Tailscale configs
+    ├── openvpn/               # OpenVPN configs
+    ├── cloudflared/           # Cloudflared configs
+    ├── proxy/                 # Proxy settings
+    ├── hooks/                 # Customization hooks
+    │   ├── pre-build.sh       # Before Docker build
+    │   ├── post-build.sh      # After Docker build
+    │   └── pre-start.sh       # Before container start
+    ├── home/                  # Container home directory (bind mount)
+    └── logs/                  # Runtime logs (auto-created)
+        ├── commands/          # All shell commands
+        ├── claude/            # Claude Code sessions
+        ├── git/               # Git operations
+        ├── safety/            # Safety checks
+        ├── proxy.log          # Proxy logs (if enabled)
+        ├── tailscale.log      # Tailscale logs (if enabled)
+        ├── openvpn.log        # OpenVPN logs (if enabled)
+        └── cloudflared.log    # Cloudflared logs (if enabled)
 ```
 
 ## ⚙️ Configuration
 
-Edit `.env` to customize:
+Edit `.claude-yolo/.env` to customize:
 
 ```bash
 # Container
-CONTAINER_NAME=claude-yolo
+CONTAINER_NAME=claude-yolo  # Auto-generated unique name per project
 CPU_LIMIT=2
 MEMORY_LIMIT=4g
 
 # Ports
 APP_PORT=8000
-WEB_TERMINAL_PORT=7681
+WEBTERMINAL_PORT=7681
 
 # Features (set to true to enable)
 ENABLE_TAILSCALE=false
 ENABLE_OPENVPN=false
 ENABLE_CLOUDFLARED=false
-ENABLE_WEB_TERMINAL=true
+WEBTERMINAL_ENABLED=true
 
 # Logging
 CLAUDE_LOG_LEVEL=info
@@ -568,6 +569,7 @@ See individual service READMEs in `tailscale/`, `openvpn/`, and `cloudflared/` d
 - **HTTP:** httpie, curl
 - **Text:** vim, nano, ripgrep
 - **Terminal:** tmux, htop
+- **File Navigation:** tree
 
 **Security & Safety Features:**
 - **Secrets scanning:** gitleaks, detect-secrets (on every commit)
