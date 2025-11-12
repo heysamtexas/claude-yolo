@@ -56,8 +56,8 @@ services:
 
     # Ports
     ports:
-      # Application port (for FastAPI, Flask, etc.)
-      - "${APP_PORT:-8000}:8000"
+      # Application port range (flexible for multi-service apps)
+      - "8000-8010:8000-8010"
 
       # Web terminal port (only active when WEBTERMINAL_ENABLED=true)
       - "${WEBTERMINAL_PORT:-7681}:${WEBTERMINAL_PORT:-7681}"

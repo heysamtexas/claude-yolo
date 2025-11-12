@@ -38,6 +38,8 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     mysql-client \
     redis-tools \
+    unixodbc \
+    unixodbc-dev \
     # Additional utilities
     vim \
     nano \
@@ -81,6 +83,13 @@ RUN curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | gpg --dearmor
     && echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list \
     && apt-get update \
     && apt-get install -y mongodb-mongosh \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Microsoft ODBC Driver 18 for SQL Server
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
+    && curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list > /etc/apt/sources.list.d/mssql-release.list \
+    && apt-get update \
+    && ACCEPT_EULA=Y apt-get install -y msodbcsql18 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install kubectl - Kubernetes CLI
